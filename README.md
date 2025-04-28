@@ -1,9 +1,5 @@
 
-> 📜 How a **Bot** must connect and **communicate with the C2 server** properly.
 
-I'll write it like a **real doc**, super clear for anyone who wants to make their own bots, payloads, or implants that talk to your server.
-
----
 
 # 📚 How Bots Should Connect and Communicate with the Modular Rust C2 Server
 
