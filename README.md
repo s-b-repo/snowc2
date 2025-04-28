@@ -42,7 +42,7 @@ The C2 server expects very specific simple **text-based communication** over TCP
 | Bot ➔ Server | `HEARTBEAT\n` | Bot is still alive |
 | Bot ➔ Server | `PONG\n` | Bot acknowledged server's ping |
 | Bot ➔ Server | `DOWNLOAD {} {}\n` | "Usage: download <url> <filename>  Command a bot to download a file from a URL|
-| Bot ➔ Server | `PONG\n` | Bot acknowledged server's ping |
+| Bot ➔ Server | `EXECUTE {}\n` | Command a bot to execute a shell command and return the output |
 
 ---
 
